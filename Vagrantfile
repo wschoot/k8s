@@ -15,14 +15,18 @@ Vagrant.configure("2") do |config|
 
   # kubectl patch svc my-service -n default -p '{"spec": {"type": "LoadBalancer", "externalIPs":["192.168.88.60", "192.168.121.60"]}}'
   # Token: kubeadm token list
+  #   vagrant ssh master -c 'sudo kubeadm token list |grep default-node-token | awk "{ print $1 }"'
   # Hash openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
 
   config.vm.network :public_network, :bridge => 'enp59s0', :dev => 'enp59s0'
 
-  config.vm.define "k8s-master" do |node|
-    config.vm.hostname = "k8s-master.local"
+  config.vm.define "master" do |node|
+    config.vm.hostname = "master.local"
     node.vm.provision :shell, inline:  <<-SHELL
     echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >> ~/.bashrc
+    echo "source <(kubectl completion bash)" >> ~/.bashrc
+    echo "alias k=kubectl" >> ~/.bashrc
+    echo "complete -F __start_kubectl k" >> ~/.bashrc
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubeadm config images pull
     kubeadm init --pod-network-cidr=10.244.0.0/16
@@ -33,13 +37,18 @@ Vagrant.configure("2") do |config|
     kubectl apply -f ~vagrant/dashboard-adminuser.yaml
     kubectl apply -f ~vagrant/dashboard-adminrole.yaml
     kubectl proxy &
-    #kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
+    # kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+    # kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
+    # kubectl expose deployment nginx-app --type=NodePort --name=nginx--service
+    # OF
+    # kubectl expose deployment nginx --port 80 --target-port 80 --type ClusterIP --selector=run=nginx
+    # Je nginx leeft nu op het externe IP uit kubectl get pods --output=wide
     SHELL
   end
 
   (1..2).each do |i|
-    config.vm.define "k8s-node#{i}" do |node|
-      node.vm.hostname = "k8s-node#{i}"
+    config.vm.define "node#{i}" do |node|
+      node.vm.hostname = "node#{i}"
     end
   end
 
@@ -54,7 +63,7 @@ Vagrant.configure("2") do |config|
   setenforce 0
   sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
 
-  yum -y update
+  #yum -y update
   mv ~vagrant/kubernetes.repo /etc/yum.repos.d/
   mv ~vagrant/sysctl.d-k8s.conf /etc/sysctl.d/k8s.conf && sysctl --system
   yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
@@ -70,4 +79,4 @@ SHELL
 end
 # http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
 
-# ssh -L 8001:localhost:8001 192.168.121.236 -l vagrant
+# vagrant ssh master -- -L 8001:localhost:8001
