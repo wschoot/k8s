@@ -22,7 +22,7 @@ yum -y install \
 scp wouter@schoot.org:.vimrc ~
 scp wouter@schoot.org:.tmux.conf ~
 scp wouter@schoot.org:.gitconfig ~
- ```
+ 
  
 # sudo visudo #NOPASSWD
  
@@ -40,14 +40,16 @@ sudo reboot # voor de juiste modules, anders
 #rmmod kvm
 #modprobe kvm
 #modprobe kvm_intel
- 
+ ```
  
 # iscsi
 
+```bash
 for vm in $(sudo virsh list --all --name); do sudo virsh destroy $vm; sudo virsh undefine $vm; done
 for vol in $(sudo virsh vol-list default | grep \.img | grep -v box | awk '{ print $1 }'); do sudo virsh vol-delete --pool default $vol; done
 
-
+```			
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNTU0NzU0NDk1LC0xODkyNTQ3ODEzXX0=
+eyJoaXN0b3J5IjpbLTE5NDQ3OTQzNDEsNTU0NzU0NDk1LC0xOD
+kyNTQ3ODEzXX0=
 -->
