@@ -17,7 +17,8 @@ yum -y install \
 	libvirt-devel \
 	rsync \
 	git \
-	bash-completion
+	bash-completion \
+	ansible
  
 scp wouter@schoot.org:.vimrc ~
 scp wouter@schoot.org:.tmux.conf ~
@@ -51,6 +52,6 @@ for vol in $(sudo virsh vol-list default | grep \.img | grep -v box | awk '{ pri
 ```	
 	
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1NDI3NTM4MjMsNTU0NzU0NDk1LC0xOD
-kyNTQ3ODEzXX0=
+eyJoaXN0b3J5IjpbLTE3NTc4Njg0NjUsLTE1NDI3NTM4MjMsNT
+U0NzU0NDk1LC0xODkyNTQ3ODEzXX0=
 -->
