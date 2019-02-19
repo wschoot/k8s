@@ -6,12 +6,14 @@ yum -y update
 yum -y install \
 	gcc \
 	libvirt \
-	vim tmux qemu-kvm \
+	vim \
+	tmux \
+	qemu-kvm \
 	qemu-img \
 	libvirt \
 	libvirt-python \
-	libvirt-client  \
-	bridge-utils 
+	libvirt-client \
+	bridge-utils \
 	libvirt-devel \
 	rsync \
 	git \
@@ -47,5 +49,5 @@ for vol in $(sudo virsh vol-list default | grep \.img | grep -v box | awk '{ pri
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTE1NTkxNDIyNSwtMTg5MjU0NzgxM119
+eyJoaXN0b3J5IjpbNTU0NzU0NDk1LC0xODkyNTQ3ODEzXX0=
 -->
