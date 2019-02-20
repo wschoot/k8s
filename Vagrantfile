@@ -34,19 +34,6 @@ Vagrant.configure("2") do |config|
   config.vm.define "master" do |node|
     config.vm.hostname = "master.local"
     node.vm.provision :shell, inline:  <<-SHELL
-    echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >> ~/.bashrc
-    echo "source <(kubectl completion bash)" >> ~/.bashrc
-    echo "alias k=kubectl" >> ~/.bashrc
-    echo "complete -F __start_kubectl k" >> ~/.bashrc
-    export KUBECONFIG=/etc/kubernetes/admin.conf
-    kubeadm config images pull
-    kubeadm init --pod-network-cidr=10.244.0.0/16
-    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
-    kubectl create clusterrolebinding --user system:serviceaccount:kube-system:default kube-system-cluster-admin --clusterrole cluster-admin
-    kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
-    kubectl apply -f ~vagrant/dashboard-adminuser.yaml
-    kubectl apply -f ~vagrant/dashboard-adminrole.yaml
     kubectl proxy &
     # kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
     # kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
@@ -67,7 +54,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "file", source: "files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
   config.vm.provision "file", source: "files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
   config.vm.provision :ansible do |ansible|
-    ansible.playbook = "ansible.yml"
+    ansible.playbook = "playbook.yml"
     ansible.groups = {
       "masters" => ["master"],
       "nodes"   => ["node1", "node2"],

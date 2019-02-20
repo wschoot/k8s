@@ -1,6 +1,7 @@
 #!/bin/bash
 
 rm *.retry
+> log
 
 vagrant destroy -f
 for vm in $(sudo virsh list --all --name); do 
@@ -13,3 +14,6 @@ for vol in $(sudo virsh vol-list default | awk '! /centos/ && /img/{ print  $1 }
 done
 
 rm -rf .vagrant
+
+vagrant up
+

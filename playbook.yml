@@ -81,18 +81,46 @@
   
 
 
-- hosts: masters
+- hosts: master
   become: true
   tasks:
+    - name: Configure .bashrc
+      lineinfile:
+        dest: /root/.bashrc
+        line: "{{ item }}"
+      with_items:
+        - 'export KUBECONFIG=/etc/kubernetes/admin.conf'
+        - 'source <(kubectl completion bash)'
+        - 'alias k=kubectl'
+        - 'complete -F __start_kubectl k'
+
+    - command: kubeadm config images pull
+    - command: kubeadm init --pod-network-cidr=10.244.0.0/16
+    - command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
+    - command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+    - command: kubectl create clusterrolebinding --user system:serviceaccount:kube-system:default kube-system-cluster-admin --clusterrole cluster-admin
+    - command: kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
+    - command: kubectl apply -f ~vagrant/dashboard-adminuser.yaml
+    - command: kubectl apply -f ~vagrant/dashboard-adminrole.yaml
+
     - name: Get join link
       command: kubeadm token create --print-join-command
       register: joinlink
 
-    - name: joinlink debug
-      debug:
-        msg: "{{ joinlink.stdout }}"
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_delegation.html
 
-- hosts: nodes
-  tasks:
-    - name: Get join link
+    - name: Join workers
       command: "{{ joinlink.stdout }}"
+      delegate_to: "{{ item }}"
+      with_items: "{{groups['nodes']}}"
+        
+    #- name: "Add K8S Token and Hash to dummy host"
+    #  add_host:
+    #    name:   "K8S_TOKEN_HOLDER"
+    #    joinlink:  "{{ joinlink.stdout }}"
+#
+#- hosts: nodes
+## SCope https://liquidat.wordpress.com/2017/09/13/howto-reference-ansible-variables-between-plays/
+#  tasks:
+#    - name: Get join link
+#      command: "{{ hostvars['K8S_TOKEN_HOLDER']['joinlink'] }}"
