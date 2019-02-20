@@ -1,0 +1,15 @@
+#!/bin/bash
+
+rm *.retry
+
+vagrant destroy -f
+for vm in $(sudo virsh list --all --name); do 
+	sudo virsh destroy $vm; 
+	sudo virsh undefine $vm; 
+done
+
+for vol in $(sudo virsh vol-list default | awk '! /centos/ && /img/{ print  $1 }'); do 
+	sudo virsh vol-delete --pool default $vol; 
+done
+
+rm -rf .vagrant

@@ -1,0 +1,98 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+
+    - name: Enable password login
+      lineinfile: 
+        dest: '/etc/ssh/sshd_config' 
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication yes"
+      notify: restart sshd
+
+    - name: Stop firewalld
+      service: 
+        name: firewalld
+        state: stopped
+
+    - name: Add repository
+      yum_repository:
+        name: kubernetes
+        description: Kubernetes
+        baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: yes
+        gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+    - name: upgrade all packages
+      yum:
+        name: '*'
+        state: latest
+        update_cache : yes
+
+    - name: Install alles wat met kube begint
+      package: 
+        name: "{{ item }}"
+        state: installed
+        update_cache: yes
+      with_items:
+        - kubelet 
+        - kubeadm 
+        - kubectl
+
+    - name: Install docker
+      package: 
+        name: '{{ item }}'
+        state: installed
+      with_items:
+        - docker
+        - etcd
+        - docker-distribution
+
+    - name: Start kubelet
+      service: 
+        name: "{{ item }}" 
+        state: started
+        enabled: yes
+      with_items:
+        - kubelet
+        - docker-distribution 
+        - docker
+
+    - name: Disable swapoff
+      shell: swapoff -a
+
+    - name: Disable swapoff permanently
+      replace:
+        path: /etc/fstab
+        regexp: '^(\s*)([^#\n]+\s+)(\w+\s+)swap(\s+.*)$'
+        replace: '#\1\2\3swap\4'
+        backup: yes
+
+  handlers:
+    - name: restart sshd
+      service: 
+        name: 'sshd'
+        state: restarted
+  
+
+
+- hosts: masters
+  become: true
+  tasks:
+    - name: Get join link
+      command: kubeadm token create --print-join-command
+      register: joinlink
+
+    - name: joinlink debug
+      debug:
+        msg: "{{ joinlink.stdout }}"
+
+- hosts: nodes
+  tasks:
+    - name: Get join link
+      command: "{{ joinlink.stdout }}"

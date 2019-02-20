@@ -4,6 +4,13 @@
 
 Vagrant.configure("2") do |config|
 
+  routes = `ip route`.lines.grep(/default via/)
+  if routes.first.start_with?("default")
+    iface = routes.first.split(" ")[4]  # first line always has default: default via 192.168.1.1 dev eth0  metric 1024
+    puts "Detected " + iface + " as default interface"
+
+  end
+
   config.vm.box = "centos/7"
   config.vm.provider :libvirt do |vb|
     vb.memory = 4096
@@ -18,7 +25,11 @@ Vagrant.configure("2") do |config|
   #   vagrant ssh master -c 'sudo kubeadm token list |grep default-node-token | awk "{ print $1 }"'
   # Hash openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
 
-  config.vm.network :public_network, :bridge => 'enp59s0', :dev => 'enp59s0'
+  config.vm.network "public_network", bridge: iface, dev: iface
+  #config.vm.network "public_network", bridge: 'eno1', dev: 'eno1'
+  #config.vm.network "public_network", bridge: ['enp59s0', 'eno1',], dev: ['enp59s0', 'eno1',]
+  #config.vm.network :public_network, :bridge => 'eno1', :dev => 'eno1'
+
 
   config.vm.define "master" do |node|
     config.vm.hostname = "master.local"
@@ -52,27 +63,20 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  config.vm.provision "file", source: "~/vagrant/k8s/files/kubernetes.repo", destination: "kubernetes.repo"
-  config.vm.provision "file", source: "~/vagrant/k8s/files/sysctl.d-k8s.conf", destination: "sysctl.d-k8s.conf"
-  config.vm.provision "file", source: "~/vagrant/k8s/files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
-  config.vm.provision "file", source: "~/vagrant/k8s/files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
+  config.vm.provision "file", source: "files/sysctl.d-k8s.conf", destination: "sysctl.d-k8s.conf"
+  config.vm.provision "file", source: "files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
+  config.vm.provision "file", source: "files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
+  config.vm.provision :ansible do |ansible|
+    ansible.playbook = "ansible.yml"
+    ansible.groups = {
+      "masters" => ["master"],
+      "nodes"   => ["node1", "node2"],
+    }
+
+  end
+
   config.vm.provision "shell", inline: <<-SHELL
-  sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-  service sshd restart
-  # Set SELinux in permissive mode (effectively disabling it)
-  setenforce 0
-  sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
-
-  #yum -y update
-  mv ~vagrant/kubernetes.repo /etc/yum.repos.d/
   mv ~vagrant/sysctl.d-k8s.conf /etc/sysctl.d/k8s.conf && sysctl --system
-  yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
-
-  systemctl enable --now kubelet
-
-  yum -y install docker  etcd docker-distribution
-  systemctl disable --now firewalld
-  systemctl enable  --now docker-distribution docker
   swapoff -a; sed '/swap/d' -i /etc/fstab
 
 SHELL
