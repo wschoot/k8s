@@ -3,6 +3,7 @@
 CentOS 7.6
 ```bash
 yum -y update
+yum -y epel-release
 yum -y install \
 	gcc \
 	libvirt \

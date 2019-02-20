@@ -44,29 +44,23 @@ Vagrant.configure("2") do |config|
     SHELL
   end
 
-  (1..2).each do |i|
+  (1..3).each do |i|
     config.vm.define "node#{i}" do |node|
-      node.vm.hostname = "node#{i}"
+      node.vm.hostname = "node#{i}.local"
     end
   end
 
-  config.vm.provision "file", source: "files/sysctl.d-k8s.conf", destination: "sysctl.d-k8s.conf"
-  config.vm.provision "file", source: "files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
-  config.vm.provision "file", source: "files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
+  #config.vm.provision "file", source: "files/sysctl.d-k8s.conf", destination: "sysctl.d-k8s.conf"
+  #config.vm.provision "file", source: "files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
+  #config.vm.provision "file", source: "files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
   config.vm.provision :ansible do |ansible|
     ansible.playbook = "playbook.yml"
     ansible.groups = {
       "masters" => ["master"],
-      "nodes"   => ["node1", "node2"],
+      "nodes"   => ["node[1:3]"],
     }
-
   end
 
-  config.vm.provision "shell", inline: <<-SHELL
-  mv ~vagrant/sysctl.d-k8s.conf /etc/sysctl.d/k8s.conf && sysctl --system
-  swapoff -a; sed '/swap/d' -i /etc/fstab
-
-SHELL
 end
 # http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
 

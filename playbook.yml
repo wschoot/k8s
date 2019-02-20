@@ -30,15 +30,14 @@
 
     - name: upgrade all packages
       yum:
-        name: '*'
+        name: tmux
         state: latest
-        update_cache : yes
+        update_cache: yes
 
     - name: Install alles wat met kube begint
       package: 
         name: "{{ item }}"
         state: installed
-        update_cache: yes
       with_items:
         - kubelet 
         - kubeadm 
@@ -73,6 +72,19 @@
         replace: '#\1\2\3swap\4'
         backup: yes
 
+    - name: Change sysctl
+      copy:
+        src: files/sysctl.d-k8s.conf
+        dest: /etc/sysctl.d/k8s.conf
+        owner: root
+        group: root
+        mode: 0600
+      register: sysctl
+
+    - name: apply sysctl
+      command: sysctl --system
+      when: sysctl.changed
+
   handlers:
     - name: restart sshd
       service: 
@@ -84,6 +96,14 @@
 - hosts: master
   become: true
   tasks:
+    - name: Copy yaml files
+      become: false
+      copy: 
+        src: "{{ item }}"
+        dest: "~/"
+      with_fileglob:
+        - files/dashboard*.yaml
+
     - name: Configure .bashrc
       lineinfile:
         dest: /root/.bashrc
@@ -94,14 +114,29 @@
         - 'alias k=kubectl'
         - 'complete -F __start_kubectl k'
 
-    - command: kubeadm config images pull
-    - command: kubeadm init --pod-network-cidr=10.244.0.0/16
-    - command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
-    - command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
-    - command: kubectl create clusterrolebinding --user system:serviceaccount:kube-system:default kube-system-cluster-admin --clusterrole cluster-admin
-    - command: kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
-    - command: kubectl apply -f ~vagrant/dashboard-adminuser.yaml
-    - command: kubectl apply -f ~vagrant/dashboard-adminrole.yaml
+    - name: kubeadm config pull
+      command: kubeadm config images pull
+# TODO idempotent
+
+    - name: kubeadm init
+      command: >
+        kubeadm init 
+        --pod-network-cidr 10.244.0.0/16 
+        --apiserver-advertise-address "{{ ansible_eth1.ipv4.address }}"
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: "kube {{ item }}"
+      command: "kubectl --kubeconfig=/etc/kubernetes/admin.conf {{ item }}"
+      with_items:
+        - apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
+        - apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+        - create clusterrolebinding --user system:serviceaccount:kube-system:default kube-system-cluster-admin --clusterrole cluster-admin
+        - create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
+        - apply -f ~vagrant/dashboard-adminuser.yaml
+        - apply -f ~vagrant/dashboard-adminrole.yaml
+
+# TODO Nieuwere ymls https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml
 
     - name: Get join link
       command: kubeadm token create --print-join-command
@@ -109,11 +144,17 @@
 
 # https://docs.ansible.com/ansible/latest/user_guide/playbooks_delegation.html
 
-    - name: Join workers
+    - name: Join workers {{ item }}
       command: "{{ joinlink.stdout }}"
       delegate_to: "{{ item }}"
       with_items: "{{groups['nodes']}}"
         
+    - name: Start proxy
+      command: >
+        kubectl proxy
+        --address="{{ ansible_eth1.ipv4.address }}"
+        --accept-hosts='192.168.88.64'
+
     #- name: "Add K8S Token and Hash to dummy host"
     #  add_host:
     #    name:   "K8S_TOKEN_HOLDER"

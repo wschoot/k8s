@@ -15,5 +15,7 @@ done
 
 rm -rf .vagrant
 
-vagrant up
+vagrant up $*
+
+vagrant ssh master -c "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes"
 
