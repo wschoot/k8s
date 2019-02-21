@@ -31,17 +31,14 @@ Vagrant.configure("2") do |config|
   #config.vm.network :public_network, :bridge => 'eno1', :dev => 'eno1'
 
 
+  # kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+  # kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
+  # kubectl expose deployment nginx-app --type=NodePort --name=nginx--service
+  # OF
+  # kubectl expose deployment nginx --port 80 --target-port 80 --type ClusterIP --selector=run=nginx
+  # Je nginx leeft nu op het externe IP uit kubectl get pods --output=wide
   config.vm.define "master" do |node|
     config.vm.hostname = "master.local"
-    node.vm.provision :shell, inline:  <<-SHELL
-    kubectl proxy &
-    # kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
-    # kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
-    # kubectl expose deployment nginx-app --type=NodePort --name=nginx--service
-    # OF
-    # kubectl expose deployment nginx --port 80 --target-port 80 --type ClusterIP --selector=run=nginx
-    # Je nginx leeft nu op het externe IP uit kubectl get pods --output=wide
-    SHELL
   end
 
   (1..3).each do |i|
@@ -50,11 +47,9 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  #config.vm.provision "file", source: "files/sysctl.d-k8s.conf", destination: "sysctl.d-k8s.conf"
-  #config.vm.provision "file", source: "files/dashboard-adminuser.yaml", destination: "dashboard-adminuser.yaml"
-  #config.vm.provision "file", source: "files/dashboard-adminrole.yaml", destination: "dashboard-adminrole.yaml"
   config.vm.provision :ansible do |ansible|
     ansible.playbook = "playbook.yml"
+		ansible.compatibility_mode = "2.0"
     ansible.groups = {
       "masters" => ["master"],
       "nodes"   => ["node[1:3]"],
