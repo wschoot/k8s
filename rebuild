@@ -1,5 +1,8 @@
 #!/bin/bash
 
+ansible-playbook -C playbook.yml || exit
+ansible-lint playbook.yml
+
 rm *.retry
 > log
 

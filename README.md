@@ -19,8 +19,11 @@ yum -y install \
 	rsync \
 	git \
 	bash-completion \
-	ansible
+	ansible \
+	/usrbin/python
  
+pip install ansible-lint
+
 scp wouter@schoot.org:.vimrc ~
 scp wouter@schoot.org:.tmux.conf ~
 scp wouter@schoot.org:.gitconfig ~
