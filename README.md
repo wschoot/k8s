@@ -36,6 +36,7 @@ systemctl enable --now libvirtd
 yum -y install https://releases.hashicorp.com/vagrant/2.2.3/vagrant_2.2.3_x86_64.rpm
  
 vagrant plugin install vagrant-libvirt
+vagrant plugin install vagrant-sshfs
  
 sudo usermod -a -G libvirt wouter
 #sudo usermod -a -G kvm wouter
