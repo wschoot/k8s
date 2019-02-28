@@ -20,7 +20,8 @@ yum -y install \
 	git \
 	bash-completion \
 	ansible \
-	/usrbin/python
+	ack \
+	/usr/bin/python
  
 pip install ansible-lint
 
