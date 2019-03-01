@@ -21,6 +21,7 @@ yum -y install \
 	bash-completion \
 	ansible \
 	ack \
+	virt-manager \
 	/usr/bin/python
  
 pip install ansible-lint
