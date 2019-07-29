@@ -7,14 +7,14 @@
         state: disabled
 
     - name: Enable password login
-      lineinfile: 
-        dest: '/etc/ssh/sshd_config' 
+      lineinfile:
+        dest: '/etc/ssh/sshd_config'
         regexp: "^#?PasswordAuthentication"
         line: "PasswordAuthentication yes"
       notify: restart sshd
 
     - name: Stop firewalld
-      service: 
+      service:
         name: firewalld
         state: stopped
 
@@ -26,7 +26,9 @@
         enabled: yes
         gpgcheck: yes
         repo_gpgcheck: yes
-        gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+        gpgkey:
+          - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+          - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 
     - name: upgrade all packages
       yum:
@@ -35,16 +37,16 @@
         update_cache: yes
 
     - name: Install alles wat met kube begint
-      package: 
+      package:
         name: "{{ item }}"
         state: installed
       with_items:
-        - kubelet 
-        - kubeadm 
+        - kubelet
+        - kubeadm
         - kubectl
 
     - name: Install docker
-      package: 
+      package:
         name: '{{ item }}'
         state: installed
       with_items:
@@ -53,17 +55,17 @@
         - docker-distribution
 
     - name: Start kubelet
-      service: 
-        name: "{{ item }}" 
+      service:
+        name: "{{ item }}"
         state: started
         enabled: yes
       with_items:
         - kubelet
-        - docker-distribution 
+        - docker-distribution
         - docker
 
     - name: Disable swapoff
-      shell: swapoff -a
+      command: swapoff -a
 
     - name: Disable swapoff permanently
       replace:
@@ -79,26 +81,23 @@
         owner: root
         group: root
         mode: 0600
-      register: sysctl
-
-    - name: apply sysctl
-      command: sysctl --system
-      when: sysctl.changed
+      notify: restart sysctl
 
   handlers:
-    - name: restart sshd
-      service: 
-        name: 'sshd'
-        state: restarted
-  
+    - name: restart sysctl
+      command: sysctl --system
 
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
 
 - hosts: master
   become: true
   tasks:
     - name: Copy yaml files
       become: false
-      copy: 
+      copy:
         src: "{{ item }}"
         dest: "~/"
       with_fileglob:
@@ -120,29 +119,57 @@
 
     - name: kubeadm init
       command: >
-        kubeadm init 
-        --pod-network-cidr 10.244.0.0/16 
+        kubeadm init
+        --pod-network-cidr 10.244.0.0/16
         --apiserver-advertise-address "{{ ansible_eth1.ipv4.address }}"
       args:
         creates: /etc/kubernetes/admin.conf
 
     - name: kube flannel
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f
+        https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
 
     - name: kube dashboard
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f
+        https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
 
     - name: kube clusteradmin
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf create clusterrolebinding --user system:serviceaccount:kube-system:default kube-system-cluster-admin --clusterrole cluster-admin
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        create clusterrolebinding
+        --user system:serviceaccount:kube-system:default kube-system-cluster-admin
+        --clusterrole cluster-admin
 
     - name: kube dashboardadmin
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        create clusterrolebinding kubernetes-dashboard
+        --clusterrole=cluster-admin
+        --serviceaccount=kube-system:kubernetes-dashboard
 
     - name: kube adminuser
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f ~vagrant/dashboard-adminuser.yaml
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f ~vagrant/dashboard-adminuser.yaml
 
     - name: kube adminrole
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f ~vagrant/dashboard-adminrole.yaml
+      command: >
+        kubectl
+        --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f ~vagrant/dashboard-adminrole.yaml
 
 
 # TODO Nieuwere ymls https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml
@@ -157,8 +184,8 @@
       command: "{{ joinlink.stdout }}"
       delegate_to: "{{ item }}"
       ignore_errors: yes
-      with_items: "{{groups['nodes']}}"
-        
+      with_items: "{{ groups['nodes'] }}"
+
     - name: Start proxy
       command: kubectl proxy
       async: 2592000               # 60*60*24*30 – 1 month
