@@ -8,7 +8,6 @@ Vagrant.configure("2") do |config|
   if routes.first.start_with?("default")
     iface = routes.first.split(" ")[4]  # first line always has default: default via 192.168.1.1 dev eth0  metric 1024
     puts "Detected " + iface + " as default interface"
-
   end
 
   config.vm.box = "centos/7"
@@ -57,6 +56,7 @@ Vagrant.configure("2") do |config|
   end
 
 end
-# http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
-
 # vagrant ssh master -- -L 8001:localhost:8001
+# http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+# Vraag je token op met :
+# [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'

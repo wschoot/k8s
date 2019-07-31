@@ -171,25 +171,27 @@
         apply
         -f ~vagrant/dashboard-adminrole.yaml
 
-
-# TODO Nieuwere ymls https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml
-
+    # TODO Nieuwere ymls https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml
     - name: Get join link
       command: kubeadm token create --print-join-command
       register: joinlink
 
-# https://docs.ansible.com/ansible/latest/user_guide/playbooks_delegation.html
+    - name: Start proxy
+      cron:
+        name: "check dirs"
+        special_time: "reboot"
+        job: "cd /tmp; nohup kubectl proxy </dev/null >/dev/null 2>&1 &"
 
+    # https://docs.ansible.com/ansible/latest/user_guide/playbooks_delegation.html
     - name: Join workers {{ item }}
       command: "{{ joinlink.stdout }}"
       delegate_to: "{{ item }}"
       ignore_errors: yes
       with_items: "{{ groups['nodes'] }}"
 
-    - name: Start proxy
-      command: kubectl proxy
-      async: 2592000               # 60*60*24*30 – 1 month
-      poll: 0
+    - name: Reboot master
+      reboot:
+        reboot_timeout: 10
 
     #- name: "Add K8S Token and Hash to dummy host"
     #  add_host:

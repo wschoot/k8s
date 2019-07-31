@@ -22,3 +22,4 @@ vagrant up $*
 
 vagrant ssh master -c "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes"
 
+# Vraag je token op met [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'
