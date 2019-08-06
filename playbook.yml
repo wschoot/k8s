@@ -218,6 +218,7 @@
       debug:
         msg:
           - "Link op http://{{ ansible_eth1.ipv4.address }}:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
+          - "Of op http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
           - "Token: {{ token.stdout }}"
           - "Nodes: {{ getnodes.stdout_lines }}"
       tags: show
