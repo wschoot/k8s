@@ -131,7 +131,7 @@
         --kubeconfig=/etc/kubernetes/admin.conf
         apply
         -f
-        https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml
+        https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 
     - name: kube dashboard
       command: >
@@ -171,7 +171,6 @@
         apply
         -f ~vagrant/dashboard-adminrole.yaml
 
-    # TODO Nieuwere ymls https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml
     - name: Get join link
       command: kubeadm token create --print-join-command
       register: joinlink
