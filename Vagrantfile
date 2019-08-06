@@ -4,11 +4,11 @@
 
 Vagrant.configure("2") do |config|
 
-  routes = `ip route`.lines.grep(/default via/)
-  if routes.first.start_with?("default")
-    iface = routes.first.split(" ")[4]  # first line always has default: default via 192.168.1.1 dev eth0  metric 1024
-    puts "Detected " + iface + " as default interface"
-  end
+#  routes = `ip route`.lines.grep(/default via/)
+#  if routes.first.start_with?("default")
+#    iface = routes.first.split(" ")[4]  # first line always has default: default via 192.168.1.1 dev eth0  metric 1024
+#    puts "Detected " + iface + " as default interface"
+#  end
 
   config.vm.box = "centos/7"
   config.vm.provider :libvirt do |vb|
@@ -24,7 +24,7 @@ Vagrant.configure("2") do |config|
   #   vagrant ssh master -c 'sudo kubeadm token list |grep default-node-token | awk "{ print $1 }"'
   # Hash openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
 
-  config.vm.network "public_network", bridge: iface, dev: iface
+  #config.vm.network "public_network", bridge: iface, dev: iface
   #config.vm.network "public_network", bridge: 'eno1', dev: 'eno1'
   #config.vm.network "public_network", bridge: ['enp59s0', 'eno1',], dev: ['enp59s0', 'eno1',]
   #config.vm.network :public_network, :bridge => 'eno1', :dev => 'eno1'
@@ -37,24 +37,38 @@ Vagrant.configure("2") do |config|
   # kubectl expose deployment nginx --port 80 --target-port 80 --type ClusterIP --selector=run=nginx
   # Je nginx leeft nu op het externe IP uit kubectl get pods --output=wide
   config.vm.define "master" do |node|
-    config.vm.hostname = "master.local"
-  end
+    node.vm.hostname = "master.local"
+		node.vm.network :private_network, ip: "10.0.15.30"
+		node.vm.provision :hostmanager
+	end
 
-  (1..3).each do |i|
-    config.vm.define "node#{i}" do |node|
-      node.vm.hostname = "node#{i}.local"
-    end
-  end
+	N = 3
+	(1..N).each do |i|
+		config.vm.define "node#{i}" do |node|
+			node.vm.hostname = "node#{i}.local"
+			node.vm.network :private_network, ip: "10.0.15.3#{i}"
+			node.vm.provision :hostmanager
 
-  config.vm.provision :ansible do |ansible|
-    ansible.playbook = "playbook.yml"
-		ansible.compatibility_mode = "2.0"
-    ansible.groups = {
-      "masters" => ["master"],
-      "nodes"   => ["node[1:3]"],
-    }
-  end
+			if i == N
+				node.vm.provision :ansible do |ansible|
+					ansible.playbook = "playbook.yml"
+					ansible.compatibility_mode = "2.0"
+					ansible.limit = "all"
+					ansible.groups = {
+						"masters" => ["master"],
+						"nodes"   => ["node[1:3]"],
+					}
+				end
+			end
+		end
+	end
 
+	if Vagrant.has_plugin?("vagrant-hostmanager")
+		config.hostmanager.enabled = false
+		config.hostmanager.manage_host = true
+		config.hostmanager.manage_guest = true
+		config.hostmanager.include_offline = true
+	end
 end
 # vagrant ssh master -- -L 8001:localhost:8001
 # http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
