@@ -1,25 +1,26 @@
 #!/bin/bash
 
-ansible-playbook -C playbook.yml || exit
+ansible-playbook --check playbook.yml || exit
+ansible-playbook --syntax-check playbook.yml || exit
 ansible-lint playbook.yml
 
 rm *.retry
 > log
 
 vagrant destroy -f
-for vm in $(sudo virsh list --all --name); do 
-	sudo virsh destroy $vm; 
-	sudo virsh undefine $vm; 
+for vm in $(sudo virsh list --all --name); do
+	sudo virsh destroy $vm;
+	sudo virsh undefine $vm;
 done
 
-for vol in $(sudo virsh vol-list default | awk '! /centos/ && /img/{ print  $1 }'); do 
-	sudo virsh vol-delete --pool default $vol; 
+for vol in $(sudo virsh vol-list default | awk '! /centos/ && /img/{ print  $1 }'); do
+	sudo virsh vol-delete --pool default $vol;
 done
 
 rm -rf .vagrant
 
-vagrant up $*
-
-#sleep 30 && vagrant ssh master -c "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes"
-
-# Vraag je token op met [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'
+vagrant up $* && \
+	vagrant ssh master -c "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes" && \
+	vagrant ssh master -c "sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --all-namespaces" && \
+	vagrant ssh master -c "sudo cat /root/token && echo " && \
+	vagrant ssh master -- -L 8001:localhost:8001
