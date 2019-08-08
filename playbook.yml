@@ -97,6 +97,7 @@
   vars:
     # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
     podnetwork: flannel
+    istio: false
   vars_files:
     - "vars/{{ podnetwork }}.yml"
 
@@ -202,6 +203,7 @@
         - ~vagrant/crd-certmanager-10.yaml
         - ~vagrant/crd-certmanager-11.yaml
         - ~vagrant/istio-demo.yaml
+      when: istio
 
     # https://kubernetes.io/docs/tutorials/stateless-application/guestbook/
     - name: gastenboek
@@ -247,7 +249,7 @@
     - name: start proxy
       shell: |
         set -o pipefail
-        tmux new-session -d -s proxy 'kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log '
+        tmux new-session -d -s proxy "kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log "
 
     - name: Waits for port 6443
       wait_for:
@@ -259,37 +261,23 @@
         set -o pipefail
         kubectl --kubeconfig=/etc/kubernetes/admin.conf describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }'
       register: adminuser
-      tags: show
 
     - name: kube token
       shell: |
         set -o pipefail
         kubectl --kubeconfig=/etc/kubernetes/admin.conf describe secret {{ adminuser.stdout }} -n kube-system | awk ' /^token/ { print $2 }'
       register: token
-      tags: show
-
-    - name: kube show nodes
-      command: >
-        kubectl
-        --kubeconfig=/etc/kubernetes/admin.conf
-        get nodes
-      register: getnodes
-      tags: show
 
     - name: save token in file
       copy:
         content: "{{ token.stdout }}"
         dest: ~/token
-      tags: show
 
     - name: show weblink
       debug:
         msg:
           - "Dashboard http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
           - "Token: {{ token.stdout }}"
-          - "SSH: vagrant ssh master -- -L 8001:localhost:8001"
-          - "Nodes: {{ getnodes.stdout_lines }}"
-      tags: show
 #    - name: show var
 #      debug:
 #        var: "{{ item }}"
