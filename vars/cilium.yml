@@ -1,0 +1,5 @@
+---
+# Cilium
+# level=fatal msg="kernel version: NOT OK: minimal supported kernel version is >= 4.8.0; kernel version that is running is: 3.10.0" subsys=daemon
+cidr: 10.217.0.0/16
+podnetworkyaml: https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.14/cilium.yaml

@@ -1,0 +1,4 @@
+---
+# Weave
+cidr: 10.244.0.0/16
+podnetworkyaml: https://cloud.weave.works/k8s/net?k8s-version={{ kubeversion.stdout }}

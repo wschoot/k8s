@@ -78,7 +78,7 @@
       sysctl:
         name: "{{ item }}"
         state: present
-        value: 1
+        value: "1"
         sysctl_file: /etc/sysctl.d/k8s.conf
         sysctl_set: yes
         reload: yes
@@ -86,19 +86,7 @@
         - net.bridge.bridge-nf-call-ip6tables
         - net.bridge.bridge-nf-call-iptables
 
-#    - name: Change sysctl
-#      copy:
-#        src: files/sysctl.d-k8s.conf
-#        dest: /etc/sysctl.d/k8s.conf
-#        owner: root
-#        group: root
-#        mode: 0600
-#      notify: restart sysctl
-#
   handlers:
-#    - name: restart sysctl
-#      command: sysctl --system
-#
     - name: restart sshd
       service:
         name: sshd
@@ -107,7 +95,10 @@
 - hosts: master
   become: true
   vars:
+    # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
     podnetwork: flannel
+  vars_files:
+    - "vars/{{ podnetwork }}.yml"
 
   tasks:
     - name: Copy yaml files
@@ -117,6 +108,7 @@
         dest: "~/"
       with_fileglob:
         - files/dashboard*.yaml
+        - files/istio-1.2.2/*.yaml
 
     - name: Configure .bashrc
       lineinfile:
@@ -130,45 +122,29 @@
 
     #- name: kubeadm config pull
     #  command: kubeadm config images pull
-    # TODO idempotent
 
     - name: kubeadm init
       command: >
         kubeadm init
-        --pod-network-cidr {{ "192.168.0.0/16" if podnetwork == "calico" else "10.244.0.0/16" }}
+        --pod-network-cidr {{ cidr }}
         --apiserver-advertise-address "{{ ansible_eth1.ipv4.address }}"
       args:
         creates: /etc/kubernetes/admin.conf
 
-    # https://docs.projectcalico.org/v3.8/getting-started/kubernetes/
-    # https://github.com/projectcalico/calico/issues/1795
-    - name: kube calico
-      command: >
-        kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        apply
-        -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
-      when: podnetwork == "calico"
-
-    - name: kube flannel
-      command: >
-        kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        apply
-        -f
-        https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-      when: podnetwork == "flannel"
-
     - name: kubeversion (needed for weave)
-      shell: "kubectl version | base64 | tr -d '\n'"
+      shell: |
+        set -o pipefail
+        kubectl version | base64 | tr -d '\n'
       register: kubeversion
       when: podnetwork == "weave"
 
-    - name: kube weave
+    # https://docs.projectcalico.org/v3.8/getting-started/kubernetes/
+    # https://github.com/projectcalico/calico/issues/1795
+    - name: kube podnetwork
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         apply
-        -f
-        https://cloud.weave.works/k8s/net?k8s-version={{ kubeversion.stdout }}
-      when: podnetwork == "weave"
+        -f {{ podnetworkyaml }}
 
     - name: kube dashboard
       command: >
@@ -206,12 +182,26 @@
     - name: kube nginx run
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
+        create deployment nginx --image=nginx
 
     - name: kube nginx expose
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        expose deployment nginx-app --type=NodePort --name=nginx-service
+        expose deployment nginx --type=NodePort --name=nginx --port=81 --target-port=80
+
+    # https://istio.io/docs/concepts/what-is-istio/
+    # https://istio.io/docs/setup/kubernetes/install/kubernetes/
+    - name: istio
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply -f {{ item }}
+      loop:
+        - ~vagrant/crd-10.yaml
+        - ~vagrant/crd-11.yaml
+        - ~vagrant/crd-12.yaml
+        - ~vagrant/crd-certmanager-10.yaml
+        - ~vagrant/crd-certmanager-11.yaml
+        - ~vagrant/istio-demo.yaml
 
     # https://kubernetes.io/docs/tutorials/stateless-application/guestbook/
     - name: gastenboek
@@ -229,7 +219,14 @@
     - name: kube nginx patch
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        patch svc frontend -n default -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"]}}'
+        patch svc nginx -n default
+        -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"], "ports":[{"port":81, "targetPort":80}]}}'
+
+    - name: kube guestbook patch
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        patch svc frontend -n default
+        -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"]}}'
 
     - name: Get join link
       command: kubeadm token create --print-join-command
@@ -248,9 +245,9 @@
       with_items: "{{ groups['nodes'] }}"
 
     - name: start proxy
-      shell: "tmux new-session -d -s proxy 'kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log '"
-    #- name: Reboot master
-    #  reboot:
+      shell: |
+        set -o pipefail
+        tmux new-session -d -s proxy 'kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log '
 
     - name: Waits for port 6443
       wait_for:
@@ -258,12 +255,16 @@
         port: 6443
 
     - name: kube adminuser
-      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }'
+      shell: |
+        set -o pipefail
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }'
       register: adminuser
       tags: show
 
     - name: kube token
-      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf describe secret {{ adminuser.stdout }} -n kube-system | awk ' /^token/ { print $2 }'
+      shell: |
+        set -o pipefail
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf describe secret {{ adminuser.stdout }} -n kube-system | awk ' /^token/ { print $2 }'
       register: token
       tags: show
 
@@ -313,6 +314,5 @@
 # [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'
 
 # TODO https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/
-# TODO https://github.com/cilium/cilium / http://docs.cilium.io/en/stable/gettingstarted/#installation
-# TODO https://istio.io/docs/concepts/what-is-istio/ / https://istio.io/docs/setup/kubernetes/install/kubernetes/
 # TODO HPA maken
+# TODO idempotent
