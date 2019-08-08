@@ -9,36 +9,26 @@ Vagrant.configure("2") do |config|
     vb.cpus = "2"
   end
 
-  # kubectl run --image=nginx nginx-app --port=80 --env="DOMAIN=cluster"
-  # kubectl expose deployment nginx-app --type=NodePort --name=nginx--service
-  # OF
-  # kubectl expose deployment nginx --port 80 --target-port 80 --type ClusterIP --selector=run=nginx
-  # Je nginx leeft nu op het externe IP uit kubectl get pods --output=wide
-
   config.vm.define "master" do |node|
     node.vm.hostname = "master.local"
 		node.vm.network :private_network, ip: "10.0.15.30"
-		node.vm.provision :hostmanager
-	end
+    node.vm.provision :hostmanager
+    node.vm.provision :ansible do |ansible|
+      ansible.playbook = "playbook.yml"
+      ansible.compatibility_mode = "2.0"
+      ansible.limit = "all"
+      ansible.groups = {
+        "masters" => ["master"],
+        "nodes"   => ["node[1:3]"],
+      }
+    end
+  end
 
-	N = 3
-	(1..N).each do |i|
+	(1..3).each do |i|
 		config.vm.define "node#{i}" do |node|
 			node.vm.hostname = "node#{i}.local"
 			node.vm.network :private_network, ip: "10.0.15.3#{i}"
 			node.vm.provision :hostmanager
-
-			if i == N
-				node.vm.provision :ansible do |ansible|
-					ansible.playbook = "playbook.yml"
-					ansible.compatibility_mode = "2.0"
-					ansible.limit = "all"
-					ansible.groups = {
-						"masters" => ["master"],
-						"nodes"   => ["node[1:3]"],
-					}
-				end
-			end
 		end
 	end
 

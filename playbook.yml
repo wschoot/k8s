@@ -213,6 +213,24 @@
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         expose deployment nginx-app --type=NodePort --name=nginx-service
 
+    # https://kubernetes.io/docs/tutorials/stateless-application/guestbook/
+    - name: gastenboek
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply -f {{ item }}
+      loop:
+        - https://k8s.io/examples/application/guestbook/redis-master-deployment.yaml
+        - https://k8s.io/examples/application/guestbook/redis-master-service.yaml
+        - https://k8s.io/examples/application/guestbook/redis-slave-deployment.yaml
+        - https://k8s.io/examples/application/guestbook/redis-slave-service.yaml
+        - https://k8s.io/examples/application/guestbook/frontend-deployment.yaml
+        - https://k8s.io/examples/application/guestbook/frontend-service.yaml
+
+    - name: kube nginx patch
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        patch svc frontend -n default -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"]}}'
+
     - name: Get join link
       command: kubeadm token create --print-join-command
       register: joinlink
@@ -266,8 +284,7 @@
     - name: show weblink
       debug:
         msg:
-          - "Link op http://{{ ansible_eth1.ipv4.address }}:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
-          - "Of op http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
+          - "Dashboard http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
           - "Token: {{ token.stdout }}"
           - "SSH: vagrant ssh master -- -L 8001:localhost:8001"
           - "Nodes: {{ getnodes.stdout_lines }}"
@@ -294,3 +311,8 @@
 # http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
 # Vraag je token op met :
 # [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'
+
+# TODO https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/
+# TODO https://github.com/cilium/cilium / http://docs.cilium.io/en/stable/gettingstarted/#installation
+# TODO https://istio.io/docs/concepts/what-is-istio/ / https://istio.io/docs/setup/kubernetes/install/kubernetes/
+# TODO HPA maken
