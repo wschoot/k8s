@@ -9,20 +9,21 @@ Vagrant.configure("2") do |config|
     vb.cpus = "2"
   end
 
-  config.vm.define "master" do |node|
-    node.vm.hostname = "master.local"
+	config.vm.define "master" do |node|
+		node.vm.synced_folder ".", "/vagrant", type: "sshfs"
+		node.vm.hostname = "master.local"
 		node.vm.network :private_network, ip: "10.0.15.30"
-    node.vm.provision :hostmanager
-    node.vm.provision :ansible do |ansible|
-      ansible.playbook = "playbook.yml"
-      ansible.compatibility_mode = "2.0"
-      ansible.limit = "all"
-      ansible.groups = {
-        "masters" => ["master"],
-        "nodes"   => ["node[1:3]"],
-      }
-    end
-  end
+		node.vm.provision :hostmanager
+		node.vm.provision :ansible do |ansible|
+			ansible.playbook = "playbook.yml"
+			ansible.compatibility_mode = "2.0"
+			ansible.limit = "all"
+			ansible.groups = {
+				"masters" => ["master"],
+				"nodes"   => ["node[1:3]"],
+			}
+		end
+	end
 
 	(1..3).each do |i|
 		config.vm.define "node#{i}" do |node|

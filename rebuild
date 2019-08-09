@@ -1,6 +1,8 @@
 #!/bin/bash
 
-[ -z $TMUX ] && echo "start tmux" && tmux new-session && exit
+[ -z $TMUX ] && echo "start tmux" && exit
+
+sort -u bash_history > bash_history_ && mv bash_history_ bash_history
 
 ansible-playbook --check playbook.yml || exit
 ansible-playbook --syntax-check playbook.yml || exit
@@ -24,5 +26,5 @@ rm -rf .vagrant
 vagrant up $* && \
 	tmux new-window -n admin 'vagrant ssh master' && \
 	tmux new-window -n token 'vagrant ssh master -c "sudo cat /root/token && echo "' \; setw remain-on-exit && \
-	tmux new-window -n master-and-portfw 'vagrant ssh master -c "sudo watch kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --all-namespaces -o wide" -- -L 8001:localhost:8001' && \
-	tmux new-window -n all-nodes 'vagrant ssh master' \; split-window 'vagrant ssh node1' \; split-window 'vagrant ssh node2' \; split-window 'vagrant ssh node3' \; setw synchronize-panes \; nextl \; nextl \; nextl \; nextl \; nextl
+	tmux new-window -n all-nodes 'vagrant ssh master' \; split-window 'vagrant ssh node1' \; split-window 'vagrant ssh node2' \; split-window 'vagrant ssh node3' \; setw synchronize-panes \; nextl \; nextl \; nextl \; nextl \; nextl && \
+	tmux new-window -n master-and-portfw 'vagrant ssh master -c "sudo watch kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --all-namespaces -o wide" -- -L 8001:localhost:8001'

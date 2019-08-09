@@ -52,6 +52,7 @@
       with_items:
         - docker
         - etcd
+        - vim
         - docker-distribution
 
     - name: Start kubelet
@@ -102,6 +103,13 @@
     - "vars/{{ podnetwork }}.yml"
 
   tasks:
+    - name: symlink bashhistory
+      file:
+        src: /vagrant/bash_history
+        dest: /root/.bash_history
+        state: link
+      tags: symlink
+
     - name: Copy yaml files
       become: false
       copy:
@@ -304,3 +312,4 @@
 # TODO https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/
 # TODO HPA maken
 # TODO idempotent
+# TODO persistent bash history met sshfs met commandos langer dan X en ge-uniq'ed
