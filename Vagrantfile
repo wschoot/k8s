@@ -11,6 +11,7 @@ Vagrant.configure("2") do |config|
 
 	config.vm.define "master" do |node|
 		node.vm.synced_folder ".", "/vagrant", type: "sshfs"
+		node.vm.synced_folder "/home/wouter/Downloads/LFS258/SOLUTIONS/", "/LFS258", type: "sshfs"
 		node.vm.hostname = "master.local"
 		node.vm.network :private_network, ip: "10.0.15.30"
 		node.vm.provision :hostmanager

@@ -313,3 +313,7 @@
 # TODO HPA maken
 # TODO idempotent
 # TODO persistent bash history met sshfs met commandos langer dan X en ge-uniq'ed
+# TODO Meerdere etcd
+# TODO ceph als onderliggende storage
+# TODO k8s from scratch
+# TODO CoreOS als onderliggend OS ivm celium
