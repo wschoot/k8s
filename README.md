@@ -1,64 +1,26 @@
-# libvirt
+# k8s
+Kubernetes with a master node and three worker nodes based on official _centos/7_ vagrant boxes :
+* **Vagrant**
+  * sshfs
+  * hostmanager
+  * ...
+* **Ansible**
+  * Version?
+* **libvirt**
+* **Multiple networkpods**
+  * Flannel
+  * Celium
+  * Calico
+  * Weave
+* Kubernetes Dashboard
+* (_Optional_) Istio (1.2.2) installation
+* (_Optional_) Guestbook sample application
 
-CentOS 7.6
-```bash
-yum -y update
-yum -y epel-release
-yum -y install \
-	gcc \
-	libvirt \
-	vim \
-	tmux \
-	qemu-kvm \
-	qemu-img \
-	libvirt \
-	libvirt-python \
-	libvirt-client \
-	bridge-utils \
-	libvirt-devel \
-	rsync \
-	git \
-	bash-completion \
-	ansible \
-	ack \
-	virt-manager \
-	/usr/bin/python
- 
-pip install ansible-lint
-
-scp wouter@schoot.org:.vimrc ~
-scp wouter@schoot.org:.tmux.conf ~
-scp wouter@schoot.org:.gitconfig ~
- 
- 
-# sudo visudo #NOPASSWD
- 
-systemctl enable --now libvirtd
- 
-yum -y install https://releases.hashicorp.com/vagrant/2.2.3/vagrant_2.2.3_x86_64.rpm
- 
-vagrant plugin install vagrant-libvirt
-vagrant plugin install vagrant-sshfs
- 
-sudo usermod -a -G libvirt wouter
-#sudo usermod -a -G kvm wouter
- 
-sudo reboot # voor de juiste modules, anders 
-#rmmod kvm_intel
-#rmmod kvm
-#modprobe kvm
-#modprobe kvm_intel
- ```
- 
-# iscsi
-
-```bash
-for vm in $(sudo virsh list --all --name); do sudo virsh destroy $vm; sudo virsh undefine $vm; done
-for vol in $(sudo virsh vol-list default | grep \.img | grep -v box | awk '{ print $1 }'); do sudo virsh vol-delete --pool default $vol; done
-
-```	
-	
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE3NTc4Njg0NjUsLTE1NDI3NTM4MjMsNT
-U0NzU0NDk1LC0xODkyNTQ3ODEzXX0=
--->
+## To be added
+ * HPA maken
+ * idempotent
+ * [Meerdere etcd](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/)
+ * ceph als onderliggende storage middels PVC's
+ * k8s from scratch
+ * CoreOS als onderliggend OS ivm celium
+ * [Traefik](https://traefik.io/) als ingress controller
