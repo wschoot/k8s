@@ -101,6 +101,7 @@
     # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
     podnetwork: flannel
     istio: false
+    apps: false
   vars_files:
     - "vars/{{ podnetwork }}.yml"
 
@@ -195,11 +196,13 @@
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         create deployment nginx --image=nginx
+      when: apps
 
     - name: kube nginx expose
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         expose deployment nginx --type=NodePort --name=nginx --port=81 --target-port=80
+      when: apps
 
     # https://istio.io/docs/concepts/what-is-istio/
     # https://istio.io/docs/setup/kubernetes/install/kubernetes/
@@ -228,18 +231,21 @@
         - https://k8s.io/examples/application/guestbook/redis-slave-service.yaml
         - https://k8s.io/examples/application/guestbook/frontend-deployment.yaml
         - https://k8s.io/examples/application/guestbook/frontend-service.yaml
+      when: apps
 
     - name: kube nginx patch
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         patch svc nginx -n default
         -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"], "ports":[{"port":81, "targetPort":80}]}}'
+      when: apps
 
     - name: kube guestbook patch
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
         patch svc frontend -n default
         -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"]}}'
+      when: apps
 
     - name: Get join link
       command: kubeadm token create --print-join-command
