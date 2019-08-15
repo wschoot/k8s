@@ -22,5 +22,5 @@ Kubernetes with a master node and three worker nodes based on official _centos/7
  * [Meerdere etcd](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/)
  * ceph als onderliggende storage middels PVC's
  * k8s from scratch
- * CoreOS als onderliggend OS ivm celium
+ * Moderner OS als onderlaag ivm kerneleisen (BPF) cilium
  * [Traefik](https://traefik.io/) als ingress controller
