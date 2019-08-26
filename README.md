@@ -12,6 +12,7 @@ Kubernetes with a master node and three worker nodes based on official _centos/7
   * Celium
   * Calico
   * Weave
+* MetalLB (for simple loadbalancing, aka giving out IP's)
 * Kubernetes Dashboard
 * (_Optional_) Istio (1.2.2) installation
 * (_Optional_) Guestbook sample application
@@ -24,3 +25,4 @@ Kubernetes with a master node and three worker nodes based on official _centos/7
  * k8s from scratch
  * Moderner OS als onderlaag ivm kerneleisen (BPF) cilium
  * [Traefik](https://traefik.io/) als ingress controller
+ * Rewrite to use https://docs.ansible.com/ansible/latest/modules/k8s_module.html

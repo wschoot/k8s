@@ -119,7 +119,7 @@
         src: "{{ item }}"
         dest: "~/"
       with_fileglob:
-        - files/dashboard*.yaml
+        - files/*.yaml
         - files/istio-1.2.2/*.yaml
 
     - name: Configure .bashrc
@@ -287,6 +287,55 @@
 
     - name: install helm
       command: bash /opt/helm
+
+    - name: init helm
+      command: /usr/local/bin/helm init
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      args:
+        creates: /root/.helm
+
+    #- name: Wait for tiller to settle
+    #  shell: >
+    #    kubectl --kubeconfig=/etc/kubernetes/admin.conf
+    #    describe pods tiller-deploy --namespace kube-system | awk '/^Status/ { print $2}'
+    #  register: cmd_res
+    #  retries: 10
+    #  delay: 6
+    #  until: cmd_res.stdout == "Running"
+
+    - name: even wachten..
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system wait --for=condition=Ready pod -l name=tiller --timeout=300s
+
+    - name: install traefik
+      command: |
+        helm install stable/traefik
+        --name traefik
+        --set dashboard.enabled=true,serviceType=NodePort,dashboard.domain=dashboard.traefik,rbac.enabled=true
+        --namespace kube-system
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+
+    - name: installeer metallb
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f
+        https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
+
+    - name: kube traefik patch
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        patch svc traefik -n kube-system
+        -p '{"spec": {"type": "LoadBalancer"}}'
+
+    - name: traefik
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply -f {{ item }}
+      loop:
+        - ~vagrant/metallb-configmap.yaml
+        - ~vagrant/kube-dashboard-via-traefik.yaml
 
     - name: kube token
       shell: |
