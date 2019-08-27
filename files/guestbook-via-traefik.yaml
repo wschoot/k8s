@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  labels:
+    app: guestbook
+  name: guestbook
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+    - host: guestbook.local
+      http:
+        paths:
+          - backend:
+              serviceName: frontend
+              servicePort: 80

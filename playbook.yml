@@ -101,7 +101,7 @@
     # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network
     podnetwork: flannel
     istio: false
-    apps: false
+    apps: true
   vars_files:
     - "vars/{{ podnetwork }}.yml"
 
@@ -233,40 +233,15 @@
         - https://k8s.io/examples/application/guestbook/frontend-service.yaml
       when: apps
 
-    - name: kube nginx patch
-      command: >
-        kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        patch svc nginx -n default
-        -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"], "ports":[{"port":81, "targetPort":80}]}}'
-      when: apps
-
-    - name: kube guestbook patch
-      command: >
-        kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        patch svc frontend -n default
-        -p '{"spec": {"type": "LoadBalancer", "externalIPs":["{{ ansible_eth1.ipv4.address }}"]}}'
-      when: apps
-
     - name: Get join link
       command: kubeadm token create --print-join-command
       register: joinlink
-
-    - name: Start proxy
-      cron:
-        name: "start proxy"
-        special_time: "reboot"
-        job: "tmux new-session -d -s proxy 'kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log '"
 
     # https://docs.ansible.com/ansible/latest/user_guide/playbooks_delegation.html
     - name: Join workers to master
       command: "{{ joinlink.stdout }}"
       delegate_to: "{{ item }}"
       with_items: "{{ groups['nodes'] }}"
-
-    - name: start proxy
-      shell: |
-        set -o pipefail
-        tmux new-session -d -s proxy "kubectl --kubeconfig=/etc/kubernetes/admin.conf proxy --accept-hosts='.*' --address {{ ansible_lo.ipv4.address }} |& tee ~/tmux.log "
 
     - name: Waits for port 6443
       wait_for:
@@ -295,26 +270,27 @@
       args:
         creates: /root/.helm
 
-    #- name: Wait for tiller to settle
-    #  shell: >
-    #    kubectl --kubeconfig=/etc/kubernetes/admin.conf
-    #    describe pods tiller-deploy --namespace kube-system | awk '/^Status/ { print $2}'
-    #  register: cmd_res
-    #  retries: 10
-    #  delay: 6
-    #  until: cmd_res.stdout == "Running"
-
-    - name: even wachten..
+    - name: wait for tiller to settle
       command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system wait --for=condition=Ready pod -l name=tiller --timeout=300s
 
+    # https://github.com/helm/charts/tree/master/stable/traefik -- options for --set
+    # TLS manual https://docs.traefik.io/user-guide/kubernetes/#add-a-tls-certificate-to-the-ingress
     - name: install traefik
       command: |
         helm install stable/traefik
         --name traefik
-        --set dashboard.enabled=true,serviceType=NodePort,dashboard.domain=dashboard.traefik,rbac.enabled=true
         --namespace kube-system
+        --set dashboard.enabled=true,serviceType=LoadBalancer,dashboard.domain=dashboard.traefik,rbac.enabled=true,ssl.insecureSkipVerify=true,ssl.enabled=true,ssl.generateTLS=true,metrics.prometheus.enabled=true
       environment:
         KUBECONFIG: /etc/kubernetes/admin.conf
+
+    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+    - name: installeer liveness check
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply
+        -f
+        https://k8s.io/examples/pods/probe/exec-liveness.yaml
 
     - name: installeer metallb
       command: >
@@ -323,12 +299,12 @@
         -f
         https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
 
-    - name: kube traefik patch
+    - name: prom configmap
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        patch svc traefik -n kube-system
-        -p '{"spec": {"type": "LoadBalancer"}}'
+        create configmap prometheus-example-cm --from-file ~vagrant/prometheus.yml
 
+    # https://medium.com/@geraldcroes/kubernetes-traefik-101-when-simplicity-matters-957eeede2cf8
     - name: traefik
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
@@ -336,6 +312,10 @@
       loop:
         - ~vagrant/metallb-configmap.yaml
         - ~vagrant/kube-dashboard-via-traefik.yaml
+        - ~vagrant/guestbook-via-traefik.yaml
+        - ~vagrant/whoareyou.yaml
+        - ~vagrant/prometheus-deployment.yaml
+        - ~vagrant/prom-via-traefik.yaml
 
     - name: kube token
       shell: |
@@ -351,27 +331,5 @@
     - name: show weblink
       debug:
         msg:
-          - "Dashboard http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/"
+          - "https://dashboard.local http://dashboard.traefik http://guestbook.local http://whoareyou.local http://prom.local"
           - "Token: {{ token.stdout }}"
-#    - name: show var
-#      debug:
-#        var: "{{ item }}"
-#      loop:
-#        - token
-#        - adminuser
-#        - getnodes.stdout_lines
-#      tags: show
-    #- name: "Add K8S Token and Hash to dummy host"
-    #  add_host:
-    #    name:   "K8S_TOKEN_HOLDER"
-    #    joinlink:  "{{ joinlink.stdout }}"
-#
-#- hosts: nodes
-## SCope https://liquidat.wordpress.com/2017/09/13/howto-reference-ansible-variables-between-plays/
-#  tasks:
-#    - name: Get join link
-#      command: "{{ hostvars['K8S_TOKEN_HOLDER']['joinlink'] }}"
-
-# http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
-# Vraag je token op met :
-# [root@master vagrant]# kubectl describe secret $(kubectl describe sa admin-user -n kube-system | awk '/^Tokens/ { print $2 }') -n kube-system | awk ' /^token/ { print $2 }'

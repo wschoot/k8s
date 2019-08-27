@@ -15,7 +15,7 @@ Vagrant.configure("2") do |config|
 		node.vm.hostname = "master.local"
 		node.vm.network :private_network, ip: "10.0.15.30"
 		node.vm.provision :hostmanager
-		node.hostmanager.aliases = %w(dashboard.traefik dashboard.local)
+		node.hostmanager.aliases = %w(dashboard.traefik dashboard.local guestbook.local whoareyou.local prom.local)
 		node.vm.provision :ansible do |ansible|
 			ansible.playbook = "playbook.yml"
 			ansible.compatibility_mode = "2.0"
