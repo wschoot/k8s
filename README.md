@@ -26,3 +26,4 @@ Kubernetes with a master node and three worker nodes based on official _centos/7
  * Moderner OS als onderlaag ivm kerneleisen (BPF) cilium
  * [Traefik](https://traefik.io/) als ingress controller http://dashboard.traefik/metrics
  * Rewrite to use https://docs.ansible.com/ansible/latest/modules/k8s_module.html
+ * Alles in eigen namespace
