@@ -302,7 +302,7 @@
     - name: prom configmap
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        create configmap prometheus-example-cm --from-file ~vagrant/prometheus.yml
+        create configmap prometheus-example-cm --from-file ~vagrant/prometheus.yaml
 
     # https://medium.com/@geraldcroes/kubernetes-traefik-101-when-simplicity-matters-957eeede2cf8
     - name: traefik
@@ -313,7 +313,6 @@
         - ~vagrant/metallb-configmap.yaml
         - ~vagrant/kube-dashboard-via-traefik.yaml
         - ~vagrant/guestbook-via-traefik.yaml
-        - ~vagrant/whoareyou.yaml
         - ~vagrant/prometheus-deployment.yaml
         - ~vagrant/prom-via-traefik.yaml
 
@@ -331,5 +330,5 @@
     - name: show weblink
       debug:
         msg:
-          - "https://dashboard.local http://dashboard.traefik http://guestbook.local http://whoareyou.local http://prom.local"
+          - "https://dashboard.local http://dashboard.traefik http://guestbook.local http://prom.local"
           - "Token: {{ token.stdout }}"
