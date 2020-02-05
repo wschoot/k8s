@@ -256,22 +256,12 @@
 
     - name: download helm
       get_url:
-        url: https://raw.githubusercontent.com/helm/helm/master/scripts/get
+        url: https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
         dest: /opt/helm
         mode: '0400'
 
     - name: install helm
       command: bash /opt/helm
-
-    - name: init helm
-      command: /usr/local/bin/helm init
-      environment:
-        KUBECONFIG: /etc/kubernetes/admin.conf
-      args:
-        creates: /root/.helm
-
-    - name: wait for tiller to settle
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system wait --for=condition=Ready pod -l name=tiller --timeout=300s
 
     # https://github.com/helm/charts/tree/master/stable/traefik -- options for --set
     # TLS manual https://docs.traefik.io/user-guide/kubernetes/#add-a-tls-certificate-to-the-ingress
